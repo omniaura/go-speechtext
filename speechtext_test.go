@@ -41,6 +41,8 @@ func TestCleanHTML(t *testing.T) {
 		{"<div><h2>News</h2><p>Ship <strong>today</strong> &amp; rest.</p></div>", "News. Ship today & rest."},
 		{"Hello <em>friend</em><br>See you.", "Hello friend See you."},
 		{"<p>Visible</p><script>alert('hidden')</script><style>.x{display:none}</style>", "Visible"},
+		{"Hi <script>hidden()</script> friend.", "Hi friend."},
+		{"Good <style>.hidden{display:none}</style> morning.", "Good morning."},
 		{"<!-- internal -->Visible &amp; useful", "Visible & useful"},
 	}
 	for _, tc := range cases {
