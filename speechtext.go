@@ -70,10 +70,12 @@ func New(options Options) *Formatter {
 	return &Formatter{hooks: hooks, parallelism: parallelism}
 }
 
+var defaultFormatter = New(Options{})
+
 // Clean performs deterministic formatting with no hooks or external calls.
 // It is suitable for a latency-sensitive text-to-speech path.
 func Clean(input string) string {
-	output, _ := New(Options{}).Format(context.Background(), input)
+	output, _ := defaultFormatter.Format(context.Background(), input)
 	return output
 }
 
@@ -87,6 +89,11 @@ func (f *Formatter) Format(ctx context.Context, input string) (string, error) {
 	}
 	if strings.TrimSpace(input) == "" {
 		return "", nil
+	}
+	// Most conversational replies have no markup. Leave that prose intact
+	// without constructing a Markdown parser or allocating an AST.
+	if strings.IndexAny(input, "<&\r\n\t#*_-+`~[!|>\\") < 0 && !startsOrderedList(input) {
+		return strings.TrimSpace(input), nil
 	}
 	source := []byte(input)
 	document := goldmark.New(goldmark.WithExtensions(extension.GFM),
@@ -228,7 +235,7 @@ func inlineText(parent ast.Node, source []byte) string {
 				}
 				return
 			}
-			for _, tag := range []string{"script", "style", "svg", "template", "noscript"} {
+			for _, tag := range []string{"script", "style", "svg", "template", "noscript", "pre"} {
 				if startsHTMLTag(lower, tag) && !strings.Contains(lower, "</"+tag) {
 					hiddenTag = tag
 					return
@@ -265,6 +272,15 @@ func startsHTMLTag(markup, tag string) bool {
 	return false
 }
 
+func startsOrderedList(input string) bool {
+	input = strings.TrimLeft(input, " ")
+	i := 0
+	for i < len(input) && input[i] >= '0' && input[i] <= '9' {
+		i++
+	}
+	return i > 0 && i+1 < len(input) && (input[i] == '.' || input[i] == ')') && (input[i+1] == ' ' || input[i+1] == '\t')
+}
+
 func htmlText(raw string) string {
 	contextNode := &xhtml.Node{Type: xhtml.ElementNode, Data: "div", DataAtom: atom.Div}
 	nodes, err := xhtml.ParseFragment(strings.NewReader(raw), contextNode)
@@ -280,7 +296,7 @@ func htmlText(raw string) string {
 		}
 		if node.Type == xhtml.ElementNode {
 			switch node.Data {
-			case "script", "style", "svg", "template", "noscript", "head":
+			case "script", "style", "svg", "template", "noscript", "head", "pre":
 				return
 			case "br":
 				out.WriteByte('\n')
