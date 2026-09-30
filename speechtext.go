@@ -195,18 +195,25 @@ func lines(segments *text.Segments, source []byte) string {
 
 func inlineText(parent ast.Node, source []byte) string {
 	var out strings.Builder
+	hiddenTag := ""
 	var visit func(ast.Node)
 	visit = func(node ast.Node) {
 		switch n := node.(type) {
 		case *ast.Text:
-			out.Write(n.Segment.Value(source))
-			if n.SoftLineBreak() || n.HardLineBreak() {
+			if hiddenTag == "" {
+				out.Write(n.Segment.Value(source))
+			}
+			if hiddenTag == "" && (n.SoftLineBreak() || n.HardLineBreak()) {
 				out.WriteByte(' ')
 			}
 		case *ast.String:
-			out.Write(n.Value)
+			if hiddenTag == "" {
+				out.Write(n.Value)
+			}
 		case *ast.AutoLink:
-			out.Write(n.Label(source))
+			if hiddenTag == "" {
+				out.Write(n.Label(source))
+			}
 		case *ast.RawHTML:
 			var raw strings.Builder
 			for i := range n.Segments.Len() {
@@ -214,14 +221,29 @@ func inlineText(parent ast.Node, source []byte) string {
 				raw.Write(segment.Value(source))
 			}
 			markup := strings.TrimSpace(raw.String())
+			lower := strings.ToLower(markup)
+			if hiddenTag != "" {
+				if strings.Contains(lower, "</"+hiddenTag) {
+					hiddenTag = ""
+				}
+				return
+			}
+			for _, tag := range []string{"script", "style", "svg", "template", "noscript"} {
+				if startsHTMLTag(lower, tag) && !strings.Contains(lower, "</"+tag) {
+					hiddenTag = tag
+					return
+				}
+			}
 			if strings.HasPrefix(strings.ToLower(markup), "<br") {
 				out.WriteByte(' ')
 			} else {
 				out.WriteString(htmlText(markup))
 			}
 		default:
-			for child := node.FirstChild(); child != nil; child = child.NextSibling() {
-				visit(child)
+			if hiddenTag == "" {
+				for child := node.FirstChild(); child != nil; child = child.NextSibling() {
+					visit(child)
+				}
 			}
 		}
 	}
@@ -229,6 +251,18 @@ func inlineText(parent ast.Node, source []byte) string {
 		visit(child)
 	}
 	return out.String()
+}
+
+func startsHTMLTag(markup, tag string) bool {
+	opening := "<" + tag
+	if !strings.HasPrefix(markup, opening) || len(markup) == len(opening) {
+		return false
+	}
+	switch markup[len(opening)] {
+	case ' ', '\t', '\n', '>', '/':
+		return true
+	}
+	return false
 }
 
 func htmlText(raw string) string {
