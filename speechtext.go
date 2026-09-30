@@ -70,10 +70,12 @@ func New(options Options) *Formatter {
 	return &Formatter{hooks: hooks, parallelism: parallelism}
 }
 
+var defaultFormatter = New(Options{})
+
 // Clean performs deterministic formatting with no hooks or external calls.
 // It is suitable for a latency-sensitive text-to-speech path.
 func Clean(input string) string {
-	output, _ := New(Options{}).Format(context.Background(), input)
+	output, _ := defaultFormatter.Format(context.Background(), input)
 	return output
 }
 
@@ -87,6 +89,11 @@ func (f *Formatter) Format(ctx context.Context, input string) (string, error) {
 	}
 	if strings.TrimSpace(input) == "" {
 		return "", nil
+	}
+	// Most conversational replies have no markup. Avoid parser construction
+	// and AST allocation on that path while leaving punctuation untouched.
+	if strings.IndexAny(input, "<&\n#*_`~[!|>\\") < 0 {
+		return strings.TrimSpace(input), nil
 	}
 	source := []byte(input)
 	document := goldmark.New(goldmark.WithExtensions(extension.GFM),
@@ -246,7 +253,7 @@ func htmlText(raw string) string {
 		}
 		if node.Type == xhtml.ElementNode {
 			switch node.Data {
-			case "script", "style", "svg", "template", "noscript", "head":
+			case "script", "style", "svg", "template", "noscript", "head", "pre":
 				return
 			case "br":
 				out.WriteByte('\n')

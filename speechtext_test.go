@@ -26,6 +26,7 @@ func TestCleanMarkdown(t *testing.T) {
 		{"table", "| Name | Value |\n| --- | --- |\n| Foo | 2 |", "Name, Value. Foo, 2"},
 		{"empty", "  \n ", ""},
 		{"ordinary punctuation", "A_B, 50%, R&D, and x^2.", "A_B, 50%, R&D, and x^2."},
+		{"plain prose fast path", "A normal chat response with punctuation.", "A normal chat response with punctuation."},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -42,11 +43,25 @@ func TestCleanHTML(t *testing.T) {
 		{"Hello <em>friend</em><br>See you.", "Hello friend See you."},
 		{"<p>Visible</p><script>alert('hidden')</script><style>.x{display:none}</style>", "Visible"},
 		{"<!-- internal -->Visible &amp; useful", "Visible & useful"},
+		{"<p>Before.</p><pre>doNotRead()</pre><p>After.</p>", "Before. After."},
 	}
 	for _, tc := range cases {
 		if got := Clean(tc.input); got != tc.want {
 			t.Fatalf("Clean(%q) = %q, want %q", tc.input, got, tc.want)
 		}
+	}
+}
+
+func BenchmarkCleanPlain(b *testing.B) {
+	for b.Loop() {
+		_ = Clean("A normal chat response with words and punctuation.")
+	}
+}
+
+func BenchmarkCleanMarkdown(b *testing.B) {
+	input := "## Results\n\n**Summary:** [Our report](https://example.com) has three findings.\n\n- First\n- Second\n"
+	for b.Loop() {
+		_ = Clean(input)
 	}
 }
 
