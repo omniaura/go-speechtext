@@ -2,7 +2,8 @@
 
 Deterministic Markdown and HTML cleanup for text-to-speech in Go. It removes
 formatting markers while keeping visible words, headings, list items, link
-labels, and HTML text. Fenced and indented code blocks are omitted by default.
+labels, and HTML text. Fenced, indented, and HTML preformatted code blocks are
+omitted by default.
 It makes no network or model calls.
 
 ```go
@@ -33,4 +34,3 @@ cleanup tool, not a semantic summarizer: it does not invent descriptions for
 code, formulas, or structured data.
 
 MIT licensed.
-Deterministic Markdown and HTML cleanup for text-to-speech in Go

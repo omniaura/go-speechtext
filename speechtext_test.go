@@ -16,6 +16,9 @@ func TestCleanMarkdown(t *testing.T) {
 		{"plain", "The API costs $5 and runs in 3 ms.", "The API costs $5 and runs in 3 ms."},
 		{"heading and emphasis", "## Summary\n**Ready** to _ship_.", "Summary: Ready to ship."},
 		{"list", "To do:\n\n- Build the API\n- Test it", "To do: Build the API. Test it"},
+		{"single bullet", "- Build the API", "Build the API"},
+		{"single ordered item", "1. Build the API", "Build the API"},
+		{"thematic break", "---", ""},
 		{"links", "See [the guide](https://example.com) and ![the chart](chart.png).", "See the guide and the chart."},
 		{"quote", "> First point.\n> Second point.", "First point. Second point."},
 		{"inline code", "Call `fmt.Println` and keep user_name as written.", "Call fmt.Println and keep user_name as written."},
@@ -43,12 +46,27 @@ func TestCleanHTML(t *testing.T) {
 		{"<p>Visible</p><script>alert('hidden')</script><style>.x{display:none}</style>", "Visible"},
 		{"Hi <script>hidden()</script> friend.", "Hi friend."},
 		{"Good <style>.hidden{display:none}</style> morning.", "Good morning."},
+		{"<p>Before.</p><pre>doNotRead()</pre><p>After.</p>", "Before. After."},
+		{"Before <pre>doNotRead()</pre> after.", "Before after."},
 		{"<!-- internal -->Visible &amp; useful", "Visible & useful"},
 	}
 	for _, tc := range cases {
 		if got := Clean(tc.input); got != tc.want {
 			t.Fatalf("Clean(%q) = %q, want %q", tc.input, got, tc.want)
 		}
+	}
+}
+
+func BenchmarkCleanPlain(b *testing.B) {
+	for b.Loop() {
+		_ = Clean("A normal chat response with words and punctuation.")
+	}
+}
+
+func BenchmarkCleanMarkdown(b *testing.B) {
+	input := "## Results\n\n**Summary:** [Our report](https://example.com) has three findings.\n\n- First\n- Second\n"
+	for b.Loop() {
+		_ = Clean(input)
 	}
 }
 
